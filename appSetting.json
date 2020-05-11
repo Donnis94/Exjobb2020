@@ -1,4 +1,0 @@
-{
-  "cosmosEndpoint": "{Insert your Cosmos DB endpoint here}",
-  "cosmosKey": "{Insert your cosmos DB primary key here}"
-}
