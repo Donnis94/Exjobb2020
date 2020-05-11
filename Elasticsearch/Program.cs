@@ -44,7 +44,7 @@ namespace elasticsearch
 
         private static async Task InsertData(ElasticClient client)
         {
-            var toString = File.ReadAllText(@"C:\Users\dony-\OneDrive\Desktop\Plugg\Exjobb\Progg\elasticsearch\elasticsearch\inserts.json");
+            var toString = File.ReadAllText(@"{path to the file inserts.json}");
             var items = JsonConvert.DeserializeObject<List<Information>>(toString);
             var sw = new Stopwatch();
             sw.Start();
@@ -56,7 +56,7 @@ namespace elasticsearch
 
         private static async Task InsertAdvanced(ElasticClient client)
         {
-            var toString = File.ReadAllText(@"C:\Users\dony-\OneDrive\Desktop\Plugg\Exjobb\Progg\elasticsearch\elasticsearch\advanced.json");
+            var toString = File.ReadAllText(@"{path to the file advanced.json}");
             var items = JsonConvert.DeserializeObject<List<AdvancedItems>>(toString);
             var sw = new Stopwatch();
             sw.Start();
