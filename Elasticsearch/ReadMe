@@ -1,1 +1,3 @@
+The file found in this folder are for the tests executed on Elasticsearch. 
 
+In order to execute the test you will need to update the information in the "Shared" class and the information of the path to the files as described in "Program"
