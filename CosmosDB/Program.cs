@@ -60,7 +60,7 @@ namespace testExjobb
         private static async Task CreateDocument()
         {
             var container = Shared.Client.GetContainer("ToDoList", "Test");
-            var toString = File.ReadAllText(@"C:\Users\Public\TestFolder\inserts.json");
+            var toString = File.ReadAllText(@"{insert path to insertion.json}");
             var items = JsonConvert.DeserializeObject<List<Items>>(toString);
             var sw = new Stopwatch();
             var task = new List<Task>();
@@ -78,7 +78,7 @@ namespace testExjobb
         private static async Task CreateAdvancedDocument()
         {
             var container = Shared.Client.GetContainer("ToDoList", "Advanced");
-            var toString = File.ReadAllText(@"C:\Users\dony-\OneDrive\Desktop\Plugg\Exjobb\Progg\testExjobb\advanced.json");
+            var toString = File.ReadAllText(@"{insert path to advanced.json}");
             var items = JsonConvert.DeserializeObject<List<AdvancedItems>>(toString);
             var task = new List<Task>();
             var sw = new Stopwatch();
