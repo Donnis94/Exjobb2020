@@ -1,4 +1,4 @@
 {
-  "cosmosEndpoint": "https://finaltestcosmos.documents.azure.com:443/",
-  "cosmosKey": "tgAtWVItpVtAp4NmDSwYGfEbimIOmGNIod1Vosub9fobrbkHPKnQ9qHVGvmiLEi5HF33k3OR2exqKD2pgCbn5g=="
+  "cosmosEndpoint": "{Insert your Cosmos DB endpoint here}",
+  "cosmosKey": "{Insert your cosmos DB primary key here}"
 }
