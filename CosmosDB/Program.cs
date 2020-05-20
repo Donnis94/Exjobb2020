@@ -1,4 +1,4 @@
-﻿using Microsoft.Azure.Cosmos;
+using Microsoft.Azure.Cosmos;
 using Microsoft.Azure.Cosmos.Linq;
 using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
@@ -39,8 +39,8 @@ namespace testExjobb
         {
             if (containerId == "Advanced")
             {
-                throughput = 400;
-                partitionKey = "/platform";
+                
+                partitionKey = "/country";
             }
             Console.WriteLine($">>>Create container {containerId} in DB <<<");
             Console.WriteLine();
@@ -60,7 +60,7 @@ namespace testExjobb
         private static async Task CreateDocument()
         {
             var container = Shared.Client.GetContainer("ToDoList", "Test");
-            var toString = File.ReadAllText(@"{insert path to insertion.json}");
+            var toString = File.ReadAllText(@"{Insert filepath here for the file insertion.json}");
             var items = JsonConvert.DeserializeObject<List<Items>>(toString);
             var sw = new Stopwatch();
             var task = new List<Task>();
@@ -78,7 +78,7 @@ namespace testExjobb
         private static async Task CreateAdvancedDocument()
         {
             var container = Shared.Client.GetContainer("ToDoList", "Advanced");
-            var toString = File.ReadAllText(@"{insert path to advanced.json}");
+            var toString = File.ReadAllText(@"{Insert filepath here for the file addvanced.json}");
             var items = JsonConvert.DeserializeObject<List<AdvancedItems>>(toString);
             var task = new List<Task>();
             var sw = new Stopwatch();
@@ -97,7 +97,8 @@ namespace testExjobb
             await SimpleQuery();
             await MediumQuery();
             await AllQuery();
-            //await ComplexQuery();
+            await ComplexQueryOne();
+            await ComplexQueryTwo();
         }
 
 
@@ -147,19 +148,18 @@ namespace testExjobb
             Console.WriteLine($"The ALL ITEMS query was executed in {result} ms ");
         }
 
-        //private static async Task ComplexQuery()
-        //{
-        //    var container = Shared.Client.GetContainer("ToDoList", "Advanced");
-        //    var sw = new Stopwatch();
-        //    sw.Start();
-        //    var complexQuery = container.GetItemLinqQueryable<AdvancedItems>(true,
-        //        "SELECT c");
-
-        //    sw.Stop();
-        //    var result = sw.ElapsedMilliseconds;
-        //    Console.WriteLine($"The COMPLEX query was executed in {result} ms ");
-        //}
-    }
-
-    
+        private static async Task ComplexQueryOne()
+        {
+            var container = Shared.Client.GetContainer("ToDoList", "Advanced");
+            var sw = new Stopwatch();
+            sw.Restart();
+            var query = container.GetItemQueryIterator<QueryResult>(
+                "SELECT COUNT (1) AS count, c.country FROM c GROUP BY c.country");
+            var results = query.ReadNextAsync().Result.OrderBy(r => r.country).ToList();
+            sw.Stop();
+            Console.WriteLine(string.Format("Advanced query returned {0} results in {1} milliseconds", results.Count, sw.ElapsedMilliseconds));
+            foreach (var queryResult in results)
+                Console.WriteLine(queryResult.country + ": " + queryResult.Count);
+        }        
+    }   
 }
