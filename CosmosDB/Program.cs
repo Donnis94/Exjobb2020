@@ -98,10 +98,8 @@ namespace testExjobb
             await MediumQuery();
             await AllQuery();
             await ComplexQueryOne();
-            await ComplexQueryTwo();
         }
-
-
+        
         private static async Task DeleteContainer(Container container)
         {
             await container.DeleteContainerAsync();
