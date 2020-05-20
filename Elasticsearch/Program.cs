@@ -1,4 +1,4 @@
-﻿using Elasticsearch.Net;
+using Elasticsearch.Net;
 using System;
 using System.Configuration;
 using Nest;
@@ -44,11 +44,11 @@ namespace elasticsearch
 
         private static async Task InsertData(ElasticClient client)
         {
-            var toString = File.ReadAllText(@"{path to the file inserts.json}");
+            var toString = File.ReadAllText(@"{insert path to intem inserts.json}");
             var items = JsonConvert.DeserializeObject<List<Information>>(toString);
             var sw = new Stopwatch();
             sw.Start();
-            await client.IndexManyAsync(items,IndexName);
+            await client.IndexManyAsync(items, IndexName);
             sw.Stop();
             var result = sw.ElapsedMilliseconds;
             Console.WriteLine($"The insertion of ITEMS was executed in {result} ms");
@@ -56,8 +56,10 @@ namespace elasticsearch
 
         private static async Task InsertAdvanced(ElasticClient client)
         {
-            var toString = File.ReadAllText(@"{path to the file advanced.json}");
+            var toString = File.ReadAllText(@"{insert path to advanced.json}");
             var items = JsonConvert.DeserializeObject<List<AdvancedItems>>(toString);
+            var createIndexResponse = client.Indices.Create(AdvancedName, c => c
+                    .Map<AdvancedItems>(m => m.AutoMap()));
             var sw = new Stopwatch();
             sw.Start();
             await client.IndexManyAsync(items, AdvancedName);
@@ -71,8 +73,7 @@ namespace elasticsearch
             await SimpleQuery(client);
             await MediumQuery(client);
             await AllQuery(client);
-            //await ComplexQuery(client);
-
+            await ComplexQueryOne(client);
         }
 
         private static async Task DeleteIndex(ElasticClient client)
@@ -85,7 +86,7 @@ namespace elasticsearch
         {
             var sw = new Stopwatch();
             sw.Start();
-            var searchResponse = client.Search<Information>(s => s.Index(IndexName).Query(q => q.Match(m=>m.Field(f => f.ObjectId=="1"))));
+            var searchResponse = client.Search<Information>(s => s.Index(IndexName).Query(q => q.Match(m => m.Field(f => f.ObjectId == "1"))));
             sw.Stop();
             var result = sw.ElapsedMilliseconds;
             Console.WriteLine($"The SIMPLE QUERY was executed in {result} ms");
@@ -111,16 +112,17 @@ namespace elasticsearch
             Console.WriteLine($"The ALL QUERY was executed in {result} ms");
         }
 
-        private static async Task ComplexQuery(ElasticClient client)
+        private static async Task ComplexQueryOne(ElasticClient client)
         {
             var sw = new Stopwatch();
             sw.Start();
-            var searchResponse = client.Search<AdvancedItems>(s => s.Index(AdvancedName).Query(q => q.Match(m => m.Field(f => f.));
+            var searchResponse = client.Search<AdvancedItems>(s => s.Index(AdvancedName)
+              .Aggregations(a => a
+                  .Terms("documents_per_country", f => f.Field(c => c.Country.Suffix("keyword")))));
             sw.Stop();
             var result = sw.ElapsedMilliseconds;
-            Console.WriteLine($"The ALL QUERY was executed in {result} ms");
+            Console.WriteLine($"The COMPLEX ONE QUERY was executed in {result} ms");
+            Console.WriteLine(searchResponse);
         }
-
-
     }
 }
