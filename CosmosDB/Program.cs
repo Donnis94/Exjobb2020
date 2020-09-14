@@ -10,6 +10,7 @@ using System.Diagnostics;
 using System.Dynamic;
 using System.IO;
 using System.Linq;
+using System.Reflection.Metadata;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml;
@@ -24,22 +25,41 @@ namespace testExjobb
         }
         public async static Task Run()
         {
-            await CreateContainer("Test");
-            await CreateDocument();
-            await CreateContainer("Advanced");
-            await CreateAdvancedDocument();
-            await ExecuteQueries();
-            var container = Shared.Client.GetContainer("ToDoList", "Test");
+            await InsertionTest("Test100");
+            await InsertionTest("Test1000");
+            await InsertionTest("Test10000");
+            await InsertionTest("Advanced");
+            var container = Shared.Client.GetContainer("ToDoList", "Test100");
+            var container1000 = Shared.Client.GetContainer("ToDoList", "Test1000");
+            var container10000 = Shared.Client.GetContainer("ToDoList", "Test10000");
             var advanced = Shared.Client.GetContainer("ToDoList", "Advanced");
+            await ExecuteQueries(container, "Test100");
+            await ExecuteQueries(container1000, "Test1000");
+            await ExecuteQueries(container10000, "Test10000");
+            await ComplexQueryOne(advanced);
             await DeleteContainer(container);
+            await DeleteContainer(container1000);
+            await DeleteContainer(container10000);
             await DeleteContainer(advanced);
         }
 
-        private static async Task CreateContainer(string containerId, int throughput = 10000, string partitionKey = "/info")
+
+        private static async Task InsertionTest(string type)
         {
+            await CreateContainer(type);
+            if (type != "Advanced")
+                await CreateDocument(type);
+            else
+                await CreateAdvancedDocument();
+        }
+        private static async Task CreateContainer(string containerId, int throughput = 1000, string partitionKey = "/info")
+        {
+            if (containerId == "Test100")
+            {
+                throughput = 400;
+            }          
             if (containerId == "Advanced")
             {
-                
                 partitionKey = "/country";
             }
             Console.WriteLine($">>>Create container {containerId} in DB <<<");
@@ -57,10 +77,22 @@ namespace testExjobb
             Console.WriteLine($"Container created {containerId}");
         }
 
-        private static async Task CreateDocument()
+        private static async Task CreateDocument(string containerName)
         {
-            var container = Shared.Client.GetContainer("ToDoList", "Test");
-            var toString = File.ReadAllText(@"{Insert filepath here for the file insertion.json}");
+            var container = Shared.Client.GetContainer("ToDoList", containerName);
+            string toString;
+            if (containerName == "Test100")
+            {
+                toString = File.ReadAllText(@"INSERT FILEPATH");
+            }
+            else if (containerName == "Test1000")
+            {
+                toString = File.ReadAllText(@"INSERT FILEPATH");
+            }
+            else
+            {
+                toString = File.ReadAllText(@"INSERT FILEPATH");
+            }
             var items = JsonConvert.DeserializeObject<List<Items>>(toString);
             var sw = new Stopwatch();
             var task = new List<Task>();
@@ -72,20 +104,20 @@ namespace testExjobb
             Task.WaitAll();
             sw.Stop();
             var result = sw.ElapsedMilliseconds;
-            Console.WriteLine($"The insertion of SIMPLE ITEMS was executed in {result} ms");
+            Console.WriteLine($"The insertion of {containerName} was executed in {result} ms");
         }
 
         private static async Task CreateAdvancedDocument()
         {
             var container = Shared.Client.GetContainer("ToDoList", "Advanced");
-            var toString = File.ReadAllText(@"{Insert filepath here for the file addvanced.json}");
+            var toString = File.ReadAllText(@"INSERT FILEPATH");
             var items = JsonConvert.DeserializeObject<List<AdvancedItems>>(toString);
             var task = new List<Task>();
             var sw = new Stopwatch();
             sw.Start();
             foreach (var testers in items)
             {
-                task.Add(container.CreateItemAsync(items));
+                ItemResponse<List<AdvancedItems>> itemResponse = await container.CreateItemAsync(items);
             }
             Task.WaitAll();
             sw.Stop();
@@ -93,33 +125,35 @@ namespace testExjobb
             Console.WriteLine($"The insertion of ADVANCED ITEMS was executed in {result} ms");
         }
 
-        private static async Task ExecuteQueries(){
-            await SimpleQuery();
-            await MediumQuery();
-            await AllQuery();
-            await ComplexQueryOne();
+        private static async Task ExecuteQueries(Container container, string containerName)
+        {
+            await SimpleQuery(container, containerName);
+            await MediumQuery(container, containerName);
+            await AllQuery(container, containerName);
         }
-        
+
         private static async Task DeleteContainer(Container container)
         {
             await container.DeleteContainerAsync();
         }
 
-        private static async Task SimpleQuery()
+        private static async Task SimpleQuery(Container container, string containerName)
         {
-            var container = Shared.Client.GetContainer("ToDoList", "Test");
             var sw = new Stopwatch();
             sw.Start();
-            var mediumQuery = container.GetItemLinqQueryable<Items>();
-            var iterator2 = mediumQuery.Where(x => x.ObjectId == "1").ToFeedIterator();
+            var simpleQuery = container.GetItemLinqQueryable<Items>();
+            var iterator1 = simpleQuery.Where(x => x.ObjectId == "1").ToFeedIterator();
             sw.Stop();
             var result = sw.ElapsedMilliseconds;
-            Console.WriteLine($"The SIMPLE query was executed in {result} ms ");
+            foreach (var item in await iterator1.ReadNextAsync())
+            {
+                Console.WriteLine(item.ObjectName);
+            }
+            Console.WriteLine($"The SIMPLE query for {containerName} was executed in {result} ms");
         }
 
-        private static async Task MediumQuery()
+        private static async Task MediumQuery(Container container, string containerName)
         {
-            var container = Shared.Client.GetContainer("ToDoList", "Test");
             var sw = new Stopwatch();
             var task = new List<Task>();
             sw.Start();
@@ -128,12 +162,11 @@ namespace testExjobb
             task.Add(iterator2.ReadNextAsync());
             Task.WaitAll();
             sw.Stop();
-            var result = sw.ElapsedMilliseconds;
-            Console.WriteLine($"The MEDIUM query was executed in {result} ms ");
+            var result = sw.ElapsedMilliseconds;  
+            Console.WriteLine($"The MEDIUM query for {containerName} was executed in {result} ms ");
         }
-        private static async Task AllQuery()
+        private static async Task AllQuery(Container container, string containerName)
         {
-            var container = Shared.Client.GetContainer("ToDoList", "Test");
             var task = new List<Task>();
             var sw = new Stopwatch();
             sw.Start();
@@ -143,12 +176,11 @@ namespace testExjobb
             Task.WaitAll();
             sw.Stop();
             var result = sw.ElapsedMilliseconds;
-            Console.WriteLine($"The ALL ITEMS query was executed in {result} ms ");
+            Console.WriteLine($"The ALL ITEMS query for {containerName} was executed in {result} ms ");
         }
 
-        private static async Task ComplexQueryOne()
+        private static async Task ComplexQueryOne(Container container)
         {
-            var container = Shared.Client.GetContainer("ToDoList", "Advanced");
             var sw = new Stopwatch();
             sw.Restart();
             var query = container.GetItemQueryIterator<QueryResult>(
@@ -156,8 +188,6 @@ namespace testExjobb
             var results = query.ReadNextAsync().Result.OrderBy(r => r.country).ToList();
             sw.Stop();
             Console.WriteLine(string.Format("Advanced query returned {0} results in {1} milliseconds", results.Count, sw.ElapsedMilliseconds));
-            foreach (var queryResult in results)
-                Console.WriteLine(queryResult.country + ": " + queryResult.Count);
-        }        
-    }   
+        }
+    }
 }
