@@ -1,5 +1,11 @@
-using Microsoft.Azure.Cosmos;
-using Microsoft.Azure.Cosmos.Linq;
+using Elasticsearch.Net;
+using System;
+using System.Configuration;
+using Nest;
+using Microsoft.Diagnostics.Tracing.Parsers;
+using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore.Migrations.Operations;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -10,184 +16,181 @@ using System.Diagnostics;
 using System.Dynamic;
 using System.IO;
 using System.Linq;
-using System.Reflection.Metadata;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml;
+using testExjobb;
 
-namespace testExjobb
+namespace elasticsearch
 {
     class Program
     {
+        private const string Test100 = "test100";
+        private const string Test1000 = "test1000";
+        private const string Test10000 = "test10000";
+        private const string AdvancedName = "advanced";
+
         public static async Task Main()
         {
             await Run();
         }
-        public async static Task Run()
+
+        private static async Task Run()
         {
-            await InsertionTest("Test100");
-            await InsertionTest("Test1000");
-            await InsertionTest("Test10000");
-            await InsertionTest("Advanced");
-            var container = Shared.Client.GetContainer("ToDoList", "Test100");
-            var container1000 = Shared.Client.GetContainer("ToDoList", "Test1000");
-            var container10000 = Shared.Client.GetContainer("ToDoList", "Test10000");
-            var advanced = Shared.Client.GetContainer("ToDoList", "Advanced");
-            await ExecuteQueries(container, "Test100");
-            await ExecuteQueries(container1000, "Test1000");
-            await ExecuteQueries(container10000, "Test10000");
-            await ComplexQueryOne(advanced);
-            await DeleteContainer(container);
-            await DeleteContainer(container1000);
-            await DeleteContainer(container10000);
-            await DeleteContainer(advanced);
+            var client = Shared.Client;
+            await InsertData(client, Test100);
+            await InsertData(client, Test1000);
+            await InsertData(client, Test10000);
+            await InsertAdvanced(client);
+            await ExecuteQueries(client, Test100);
+            await ExecuteQueries(client, Test1000);
+            await ExecuteQueries(client, Test10000);
+            await ComplexQueryOne(client);
+            await DeleteIndex(client);
         }
 
-
-        private static async Task InsertionTest(string type)
+        private static async Task InsertData(ElasticClient client, String indexName)
         {
-            await CreateContainer(type);
-            if (type != "Advanced")
-                await CreateDocument(type);
-            else
-                await CreateAdvancedDocument();
-        }
-        private static async Task CreateContainer(string containerId, int throughput = 1000, string partitionKey = "/info")
-        {
-            if (containerId == "Test100")
+            string toString = "";
+            string indexType = "";
+            int amount = 0;
+            if (indexName == "test100")
             {
-                throughput = 400;
-            }          
-            if (containerId == "Advanced")
-            {
-                partitionKey = "/country";
+                toString = File.ReadAllText(@"INSERT FILEPATH");
+                indexType = "test100";
+                amount = 100;
             }
-            Console.WriteLine($">>>Create container {containerId} in DB <<<");
-            Console.WriteLine();
-            Console.WriteLine($"Throughput: {throughput} RU/sec");
-            Console.WriteLine($"Partition key : {partitionKey}");
-            Console.WriteLine();
-            var containerDef = new ContainerProperties
+            else if (indexName == "test1000")
             {
-                Id = containerId,
-                PartitionKeyPath = partitionKey,
-            };
-            var database = Shared.Client.GetDatabase("ToDoList");
-            await database.CreateContainerAsync(containerDef, throughput);
-            Console.WriteLine($"Container created {containerId}");
-        }
-
-        private static async Task CreateDocument(string containerName)
-        {
-            var container = Shared.Client.GetContainer("ToDoList", containerName);
-            string toString;
-            if (containerName == "Test100")
-            {
-                toString = File.ReadAllText(@" INSERT FILEPATH");
+                toString = File.ReadAllText(@"INSERT FILEPATH");
+                indexType = "test1000";
+                amount = 1000;
             }
-            else if (containerName == "Test1000")
+            else if (indexName == "test10000")
             {
-                toString = File.ReadAllText(@" INSERT FILEPATH");
+                toString = File.ReadAllText(@"INSERT FILEPATH");
+                indexType = "test10000";
+                amount = 10000;
             }
-            else
-            {
-                toString = File.ReadAllText(@" INSERT FILEPATH");
-            }
-            var items = JsonConvert.DeserializeObject<List<Items>>(toString);
+            var items = JsonConvert.DeserializeObject<List<Information>>(toString);
             var sw = new Stopwatch();
-            var task = new List<Task>();
             sw.Start();
-            foreach (var testers in items)
-            {
-                task.Add(container.CreateItemAsync(items));
-            }
-            Task.WaitAll();
+            await client.IndexManyAsync(items, indexType);
             sw.Stop();
             var result = sw.ElapsedMilliseconds;
-            Console.WriteLine($"The insertion of {containerName} was executed in {result} ms");
+            Console.WriteLine($"The insertion of {amount} ITEMS was executed in {result} ms \n");
         }
 
-        private static async Task CreateAdvancedDocument()
+        private static async Task InsertAdvanced(ElasticClient client)
         {
-            var container = Shared.Client.GetContainer("ToDoList", "Advanced");
-            var toString = File.ReadAllText(@" INSERT FILEPATH");
+            var toString = File.ReadAllText(@"INSERT FILEPATH");
             var items = JsonConvert.DeserializeObject<List<AdvancedItems>>(toString);
-            var task = new List<Task>();
+            var createIndexResponse = client.Indices.Create(AdvancedName, c => c
+                    .Map<AdvancedItems>(m => m.AutoMap()));
             var sw = new Stopwatch();
             sw.Start();
-            foreach (var testers in items)
+            await client.IndexManyAsync(items, AdvancedName);
+            sw.Stop();
+            var result = sw.ElapsedMilliseconds;
+            Console.WriteLine($"The insertion of the ADVANCED ITEMS was executed in {result} ms");
+        }
+
+        private static async Task ExecuteQueries(ElasticClient client, String IndexName)
+        {
+            await SimpleQuery(client, IndexName);
+            await MediumQuery(client, IndexName);
+            await AllQuery(client, IndexName);
+        }
+
+        private static async Task DeleteIndex(ElasticClient client)
+        {
+            client.Indices.Delete(Test100);
+            client.Indices.Delete(Test1000);
+            client.Indices.Delete(Test10000);
+            client.Indices.Delete(AdvancedName);
+        }
+
+        private static async Task SimpleQuery(ElasticClient client, String IndexName)
+        {
+            int amount = 0;
+            if (IndexName == "test100")
             {
-                ItemResponse<List<AdvancedItems>> itemResponse = await container.CreateItemAsync(items);
+                amount = 100;
             }
-            Task.WaitAll();
-            sw.Stop();
-            var result = sw.ElapsedMilliseconds;
-            Console.WriteLine($"The insertion of ADVANCED ITEMS was executed in {result} ms");
-        }
-
-        private static async Task ExecuteQueries(Container container, string containerName)
-        {
-            await SimpleQuery(container, containerName);
-            await MediumQuery(container, containerName);
-            await AllQuery(container, containerName);
-        }
-
-        private static async Task DeleteContainer(Container container)
-        {
-            await container.DeleteContainerAsync();
-        }
-
-        private static async Task SimpleQuery(Container container, string containerName)
-        {
-            var sw = new Stopwatch();
-            sw.Start();
-            var simpleQuery = container.GetItemLinqQueryable<Items>();
-            var iterator1 = simpleQuery.Where(x => x.ObjectId == "1").ToFeedIterator();
-            sw.Stop();
-            var result = sw.ElapsedMilliseconds;
-            foreach (var item in await iterator1.ReadNextAsync())
+            else if (IndexName == "test1000")
             {
-                Console.WriteLine(item.ObjectName);
+                amount = 1000;
             }
-            Console.WriteLine($"The SIMPLE query for {containerName} was executed in {result} ms");
-        }
-
-        private static async Task MediumQuery(Container container, string containerName)
-        {
-            var sw = new Stopwatch();
-            var task = new List<Task>();
-            sw.Start();
-            var mediumQuery = container.GetItemLinqQueryable<Items>();
-            var iterator2 = mediumQuery.Where(x => x.Info == "Video about sky").ToFeedIterator();
-            task.Add(iterator2.ReadNextAsync());
-            Task.WaitAll();
-            sw.Stop();
-            var result = sw.ElapsedMilliseconds;  
-            Console.WriteLine($"The MEDIUM query for {containerName} was executed in {result} ms ");
-        }
-        private static async Task AllQuery(Container container, string containerName)
-        {
-            var task = new List<Task>();
+            else if (IndexName == "test10000")
+            {
+                amount = 10000;
+            }
             var sw = new Stopwatch();
             sw.Start();
-            var allItems = container.GetItemLinqQueryable<Items>();
-            var allIterator = allItems.ToFeedIterator();
-            task.Add(allIterator.ReadNextAsync());
-            Task.WaitAll();
+            var searchResponse = client.Search<Information>(s => s.Index(IndexName).Query(q => q.Match(m => m.Field(f => f.ObjectId == "1"))));
             sw.Stop();
             var result = sw.ElapsedMilliseconds;
-            Console.WriteLine($"The ALL ITEMS query for {containerName} was executed in {result} ms ");
+            Console.WriteLine($"The SIMPLE QUERY for {amount} ITEMS was executed in {result} ms \n");
         }
 
-        private static async Task ComplexQueryOne(Container container)
+        private static async Task MediumQuery(ElasticClient client, String IndexName)
+        {
+            int amount = 0;
+            if (IndexName == "test100")
+            {
+                amount = 100;
+            }
+            else if (IndexName == "test1000")
+            {
+                amount = 1000;
+            }
+            else if (IndexName == "test10000")
+            {
+                amount = 10000;
+            }
+            var sw = new Stopwatch();
+            sw.Start();
+            var searchResponse = client.Search<Information>(s => s.Index(IndexName).Query(q => q.Match(m => m.Field(f => f.Info == "Video about sky"))));
+            sw.Stop();
+            var result = sw.ElapsedMilliseconds;
+            Console.WriteLine($"The MEDIUM QUERY for {amount} ITEMS was executed in {result} ms \n");
+        }
+
+        private static async Task AllQuery(ElasticClient client, String IndexName)
+        {
+            int amount = 0;
+            if (IndexName == "test100")
+            {
+                amount = 100;
+            }
+            else if (IndexName == "test1000")
+            {
+                amount = 1000;
+            }
+            else if (IndexName == "test10000")
+            {
+                amount = 10000;
+            }
+            var sw = new Stopwatch();
+            sw.Start();
+            var searchResponse = client.Search<Information>(s => s.Index(IndexName).Query(q => q.MatchAll()));
+            sw.Stop();
+            var result = sw.ElapsedMilliseconds;
+            Console.WriteLine($"The ALL QUERY for {amount} ITEMS was executed in {result} ms");
+        }
+
+        private static async Task ComplexQueryOne(ElasticClient client)
         {
             var sw = new Stopwatch();
-            sw.Restart();
-            var query = container.GetItemQueryIterator<QueryResult>(
-                "SELECT COUNT (1) AS count, c.country FROM c GROUP BY c.country");
-            var results = query.ReadNextAsync().Result.OrderBy(r => r.country).ToList();
+            sw.Start();
+            var searchResponse = client.Search<AdvancedItems>(s => s.Index(AdvancedName)
+              .Aggregations(a => a
+                  .Terms("documents_per_country", f => f.Field(c => c.Country.Suffix("keyword")))));
             sw.Stop();
-            Console.WriteLine(string.Format("Advanced query returned {0} results in {1} milliseconds", results.Count, sw.ElapsedMilliseconds));
+            var result = sw.ElapsedMilliseconds;
+            Console.WriteLine($"The COMPLEX QUERY was executed in {result} ms");
+            Console.WriteLine(searchResponse);
+
         }
     }
 }
